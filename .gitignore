@@ -1,2 +1,5 @@
 # Project exclude paths
 /tailwind/node_modules/
+.fleet
+.idea
+todo.db
