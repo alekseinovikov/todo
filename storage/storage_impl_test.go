@@ -57,7 +57,7 @@ func Test_todoStorage_Add(t1 *testing.T) {
 	defer deleteFile()
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
-			inserted := t.Add(tt.args.todo).MustGet().MustGet()
+			inserted, _ := t.Add(tt.args.todo)
 			assert.NotNil(t1, inserted.Id)
 			assert.Equal(t1, tt.args.todo.Name, inserted.Name)
 			assert.Equal(t1, tt.args.todo.Description, inserted.Description)
@@ -127,7 +127,8 @@ func Test_todoStorage_MarkUndoneAndUndone(t1 *testing.T) {
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
 			if tt.args.create != nil {
-				id := t.Add(*tt.args.create).MustGet().MustGet().Id
+				inserted, _ := t.Add(*tt.args.create)
+				id := inserted.Id
 				tt.args.updateDoneId = id
 				tt.args.expected.Id = id
 			}
@@ -142,7 +143,9 @@ func Test_todoStorage_MarkUndoneAndUndone(t1 *testing.T) {
 			if tt.args.notFoundExpected {
 				assert.Equal(t1, errors.NotFound(tt.args.updateDoneId), err)
 			} else {
-				assert.Equal(t1, t.FindById(tt.args.updateDoneId).MustGet().MustGet(), tt.args.expected)
+				foundOpt, _ := t.FindById(tt.args.updateDoneId)
+				found := foundOpt.MustGet()
+				assert.Equal(t1, found, tt.args.expected)
 			}
 		})
 	}
@@ -193,20 +196,19 @@ func Test_todoStorage_Update(t1 *testing.T) {
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
 			if tt.args.create != nil {
-				res := t.Add(*tt.args.create)
-				id := res.MustGet().MustGet().Id
-				tt.args.update.Id = id
+				added, _ := t.Add(*tt.args.create)
+				tt.args.update.Id = added.Id
 
 				if tt.args.expected != nil {
-					tt.args.expected.Id = id
+					tt.args.expected.Id = added.Id
 				}
 			}
 
-			updated := t.Update(tt.args.update)
+			updated, err := t.Update(tt.args.update)
 			if tt.args.expected != nil {
-				assert.Equal(t1, tt.args.expected, updated.MustGet().MustGet())
+				assert.Equal(t1, tt.args.expected, updated)
 			} else {
-				assert.Equal(t1, errors.NotFound(tt.args.update.Id), updated.Error())
+				assert.Equal(t1, errors.NotFound(tt.args.update.Id), err)
 			}
 		})
 	}

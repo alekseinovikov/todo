@@ -23,9 +23,9 @@ type RecordTodo struct {
 type TodoStorage interface {
 	Init() error
 	Close() error
-	Add(todo AddTodo) Result[Option[*RecordTodo]]
-	FindById(id uint32) Result[Option[*RecordTodo]]
-	Update(todo UpdateTodo) Result[Option[*RecordTodo]]
+	Add(todo AddTodo) (*RecordTodo, error)
+	FindById(id uint32) (Option[*RecordTodo], error)
+	Update(todo UpdateTodo) (*RecordTodo, error)
 	MarkDone(id uint32) error
 	MarkUndone(id uint32) error
 }

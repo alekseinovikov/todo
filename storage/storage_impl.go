@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	. "github.com/samber/mo"
 	"log"
 	"todo/errors"
@@ -33,52 +34,61 @@ func (t *todoStorage) Close() error {
 	return t.db.Close()
 }
 
-func (t *todoStorage) Add(todo AddTodo) Result[Option[*RecordTodo]] {
+func (t *todoStorage) Add(todo AddTodo) (*RecordTodo, error) {
 	tx, err := t.db.Begin()
 	if err != nil {
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
 	stmt, err := tx.Prepare(`insert into todos(name, description) 
 									VALUES (?,?)`)
 	if err != nil {
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 	defer closeInternal(stmt)
 
 	result, err := stmt.Exec(todo.Name, todo.Description)
 	if err != nil {
 		_ = tx.Rollback()
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
-	return t.FindById(uint32(id))
+	found, err := t.FindById(uint32(id))
+	if err != nil {
+		return nil, err
+	}
+
+	if found.IsAbsent() {
+		return nil, errors.Unexpected(fmt.Errorf("can't find entity after insert"))
+	}
+
+	return found.MustGet(), nil
 }
 
-func (t *todoStorage) FindById(id uint32) Result[Option[*RecordTodo]] {
+func (t *todoStorage) FindById(id uint32) (Option[*RecordTodo], error) {
 	tx, err := t.db.Begin()
 	if err != nil {
-		return unexpectedResult(err)
+		return None[*RecordTodo](), errors.Unexpected(err)
 	}
 
 	rows, err := tx.Query("SELECT id, name, description, done FROM todos WHERE id = ? LIMIT 1", id)
 	if err != nil {
-		return unexpectedResult(err)
+		return None[*RecordTodo](), errors.Unexpected(err)
 	}
 	defer closeInternal(rows)
 
 	if !rows.Next() {
-		return noneResult
+		return noneResult, nil
 	}
 
 	var rec RecordTodo
@@ -86,40 +96,49 @@ func (t *todoStorage) FindById(id uint32) Result[Option[*RecordTodo]] {
 	err = rows.Scan(&rec.Id, &rec.Name, &rec.Description, &done)
 	if err != nil {
 		_ = tx.Rollback()
-		return unexpectedResult(err)
+		return None[*RecordTodo](), errors.Unexpected(err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return unexpectedResult(err)
+		return None[*RecordTodo](), errors.Unexpected(err)
 	}
 
 	rec.Done = done > 0
-	return Ok(Some(&rec))
+	return Some(&rec), nil
 }
 
-func (t *todoStorage) Update(todo UpdateTodo) Result[Option[*RecordTodo]] {
+func (t *todoStorage) Update(todo UpdateTodo) (*RecordTodo, error) {
 	tx, err := t.db.Begin()
 	if err != nil {
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
 	result, err := tx.Exec("UPDATE todos SET name = ?, description = ? WHERE id = ?", todo.Name, todo.Description, todo.Id)
 	if err != nil {
 		_ = tx.Rollback()
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return unexpectedResult(err)
+		return nil, errors.Unexpected(err)
 	}
 
 	if count, err := result.RowsAffected(); count < 1 || err != nil {
-		return notFoundResult(todo.Id)
+		return nil, errors.NotFound(todo.Id)
 	}
 
-	return t.FindById(todo.Id)
+	found, err := t.FindById(todo.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	if found.IsAbsent() {
+		return nil, fmt.Errorf("can't find entity after update")
+	}
+
+	return found.MustGet(), nil
 }
 
 func (t *todoStorage) MarkDone(id uint32) error {
@@ -165,12 +184,4 @@ func closeInternal(closer Closer) {
 	}
 }
 
-var noneResult = Ok(None[*RecordTodo]())
-
-func notFoundResult(id uint32) Result[Option[*RecordTodo]] {
-	return Err[Option[*RecordTodo]](errors.NotFound(id))
-}
-
-func unexpectedResult(err error) Result[Option[*RecordTodo]] {
-	return Err[Option[*RecordTodo]](errors.Unexpected(err))
-}
+var noneResult = None[*RecordTodo]()
