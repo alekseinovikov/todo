@@ -1,8 +1,9 @@
 package service
 
 import (
-	. "github.com/samber/mo"
 	"todo/storage"
+
+	. "github.com/samber/mo"
 )
 
 func NewTodoService(storage storage.TodoStorage) TodoService {
@@ -40,13 +41,11 @@ func (t todoService) FindById(id uint32) (Option[*Todo], error) {
 }
 
 func (t todoService) MarkDone(id uint32) error {
-	//TODO implement me
-	panic("implement me")
+	return t.storage.MarkDone(id)
 }
 
 func (t todoService) MarkUndone(id uint32) error {
-	//TODO implement me
-	panic("implement me")
+	return t.storage.MarkUndone(id)
 }
 
 func (c *CreateTodo) toStorage() storage.AddTodo {
