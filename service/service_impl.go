@@ -22,8 +22,8 @@ func (t todoService) Save(ct CreateTodo) (*Todo, error) {
 	return fromRecord(result), nil
 }
 
-func (t todoService) Update(ut UpdateTodo) (*Todo, error) {
-	result, err := t.storage.Update(ut.toStorage())
+func (t todoService) Update(id uint32, ut UpdateTodo) (*Todo, error) {
+	result, err := t.storage.Update(ut.toStorage(id))
 	if err != nil {
 		return nil, err
 	}
@@ -51,13 +51,13 @@ func (t todoService) MarkUndone(id uint32) error {
 func (c *CreateTodo) toStorage() storage.AddTodo {
 	return storage.AddTodo{
 		Name:        c.Name,
-		Description: c.Content,
+		Description: c.Description,
 	}
 }
 
-func (u *UpdateTodo) toStorage() storage.UpdateTodo {
+func (u *UpdateTodo) toStorage(id uint32) storage.UpdateTodo {
 	return storage.UpdateTodo{
-		Id:          u.Id,
+		Id:          id,
 		Name:        u.Name,
 		Description: u.Description,
 	}

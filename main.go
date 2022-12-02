@@ -5,6 +5,8 @@ import (
 	"github.com/labstack/echo/v4"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"todo/controller"
+	"todo/service"
 	"todo/storage"
 )
 
@@ -17,10 +19,10 @@ func main() {
 		}
 	}(todoStorage)
 
-	e := echo.New()
+	s := service.NewTodoService(todoStorage)
 
-	e.Static("/", "static")
-	e.File("/", "static/index.html")
+	e := echo.New()
+	controller.NewTodoController(e, s).RegisterRoutes()
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
